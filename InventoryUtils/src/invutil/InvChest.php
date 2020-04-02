@@ -1,4 +1,5 @@
 <?php
+
 namespace invutil;
 
 use pocketmine\tile\Chest;
@@ -12,6 +13,29 @@ class InvChest extends Chest
     public $users = [];
 
     public $custom_id = 0;
+
+    /** @var callable[] */
+    public $handlers = [];
+
+    public function resetHandler()
+    {
+        $this->handlers = [];
+    }
+
+    public function setHandler(int $slot, callable $f)
+    {
+        $this->handlers[$slot] = $f;
+    }
+
+    public function handle(Player $player, int $slot): bool
+    {
+        if (isset($this->handlers[$slot])) {
+            $f = $this->handlers[$slot];
+            $f($player);
+            return true;
+        }
+        return false;
+    }
 
     public function setCustomId(int $id)
     {

@@ -2,11 +2,13 @@
 
 namespace invutil;
 
+use pocketmine\item\ItemFactory;
 use pocketmine\plugin\PluginBase;
 use pocketmine\event\Listener;
 use pocketmine\Player;
 use pocketmine\block\Block;
 use pocketmine\inventory\ChestInventory;
+use pocketmine\scheduler\ClosureTask;
 use pocketmine\tile\Tile;
 use pocketmine\inventory\Inventory;
 use invutil\tasks\InventorySendTask;
@@ -61,11 +63,16 @@ class InventoryUtils extends PluginBase implements Listener
                     $holder = $inv->getHolder();
 
                     if ($holder instanceof InvChest) {
-                        $id = $holder->getCustomId();
                         $player = $holder->getUser();
-                        if (!$event->isCancelled()) {
-                            $e = new InvChestSlotChangeEvent($player, $action->getSourceItem(), $slot, $inv, $id, $action->getTargetItem());
-                            $e->call();
+                        if ($holder->handle($player, $slot)) {
+                            $this->getScheduler()->scheduleDelayedTask(new ClosureTask(function (int $currentTick) use ($player): void {
+                                $player->getCursorInventory()->clearAll(true);
+                                $player->getCursorInventory()->setItem(0, ItemFactory::get(0));
+                            }), 2);
+                            $event->setCancelled();
+
+                            /*$e = new InvChestSlotChangeEvent($player, $action->getSourceItem(), $slot, $inv, $id, $action->getTargetItem());
+                            $e->call();*/
                         }
                     }
                 }
