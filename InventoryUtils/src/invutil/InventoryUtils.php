@@ -2,6 +2,7 @@
 
 namespace invutil;
 
+use pocketmine\event\block\BlockBreakEvent;
 use pocketmine\item\ItemFactory;
 use pocketmine\plugin\PluginBase;
 use pocketmine\event\Listener;
@@ -9,6 +10,7 @@ use pocketmine\Player;
 use pocketmine\block\Block;
 use pocketmine\inventory\ChestInventory;
 use pocketmine\scheduler\ClosureTask;
+use pocketmine\Server;
 use pocketmine\tile\Tile;
 use pocketmine\inventory\Inventory;
 use invutil\tasks\InventorySendTask;
@@ -45,6 +47,24 @@ class InventoryUtils extends PluginBase implements Listener
         $this->getServer()
             ->getPluginManager()
             ->registerEvents($this, $this);
+
+        $this->getScheduler()->scheduleRepeatingTask(new ClosureTask(function (int $currentTick): void {
+            $this->invChestTileCheck();
+        }), 100);
+    }
+
+    public function invChestTileCheck()
+    {
+        $r = 0;
+        foreach (Server::getInstance()->getLevels() as $level) {
+            foreach ($level->getTiles() as $tile) {
+                if ($tile instanceof InvChest) {
+                    $level->removeTile($tile);
+                    ++$r;
+                }
+            }
+        }
+        Server::getInstance()->getLogger()->info("{$r} tiles removed.");
     }
 
     /**
@@ -131,6 +151,16 @@ class InventoryUtils extends PluginBase implements Listener
         return new DoubleChestInventory($holder, $holder2);
     }
 
+    public function onBreak(BlockBreakEvent $event)
+    {
+        $block = $event->getBlock();
+        $tile = $block->level->getTile($block);
+        if ($tile instanceof InvChest) {
+            $event->getPlayer()->sendMessage("DONT BREAK THAT BLOCK, Block ID: {$block->getId()}");
+            $event->setCancelled();
+        }
+    }
+
     /**
      * @param Player $player
      * @param string $customName
@@ -168,5 +198,14 @@ class InventoryUtils extends PluginBase implements Listener
     public function sendInventory(Player $player, Inventory $inventory)
     {
         $this->getScheduler()->scheduleDelayedTask(new InventorySendTask($player, $inventory), 10);
+
+        /*if ($inventory instanceof ChestInventory) {
+            $holder = $inventory->getHolder();
+            if ($holder instanceof InvChest) {
+                $player->level->removeTile($holder);
+                if($inventory instanceof DoubleChestInventory)
+                    $player->level->removeTile($holder->getPair());
+            }
+        }*/
     }
 }
